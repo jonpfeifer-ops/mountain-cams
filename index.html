@@ -61,6 +61,8 @@
   .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-width: 0; }
   .frame { position: relative; aspect-ratio: 16 / 9; background: #000; max-width: 100%; }
   .frame video, .frame iframe { width: 100%; height: 100%; display: block; border: 0; object-fit: contain; background: #000; }
+  .frame.max { position: fixed; inset: 0; z-index: 50; aspect-ratio: auto; max-width: none; }
+  .close { position: absolute; z-index: 2; top: max(12px, env(safe-area-inset-top, 0px)); right: max(12px, env(safe-area-inset-right, 0px)); width: 40px; height: 40px; border-radius: 999px; border: 0; background: rgba(0,0,0,.65); color: #fff; font-size: 18px; cursor: pointer; }
   .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-2); font-size: 13px; background: rgba(0,0,0,.6); }
   .cap { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; }
   .names { min-width: 0; }
@@ -256,9 +258,16 @@
     }
     acts.append(
       el('button', { class: 'btn', type: 'button', title: 'Full screen', 'aria-label': 'Full screen', onclick: () => {
-        const v = frame.querySelector('video, iframe');
-        const target = v || frame;
-        (target.requestFullscreen || target.webkitRequestFullscreen || target.webkitEnterFullscreen)?.call(target);
+        // iPhones refuse real full screen for anything but a loaded <video>,
+        // so fall back to filling the window.
+        const v = frame.querySelector('video');
+        const t = v || frame.querySelector('iframe') || frame;
+        try {
+          if (t.requestFullscreen) { t.requestFullscreen().catch(() => maximize(frame)); return; }
+          if (t.webkitRequestFullscreen) { t.webkitRequestFullscreen(); return; }
+          if (v && v.webkitEnterFullscreen && v.readyState >= 1) { v.webkitEnterFullscreen(); return; }
+        } catch { /* fall through */ }
+        maximize(frame);
       } }, icon(ICON.full)),
       el('a', { class: 'btn', href: cam.link, target: '_blank', rel: 'noopener', title: 'Source page', 'aria-label': 'Source page' }, icon(ICON.out)),
     );
@@ -269,6 +278,16 @@
         acts));
     startLive();
     return { node, stop: () => stop() };
+  }
+
+  function maximize(frame) {
+    const close = el('button', { class: 'close', type: 'button', 'aria-label': 'Close' }, '✕');
+    const done = () => { frame.classList.remove('max'); close.remove(); document.removeEventListener('keydown', onKey); };
+    const onKey = (e) => { if (e.key === 'Escape') done(); };
+    close.addEventListener('click', done);
+    document.addEventListener('keydown', onKey);
+    frame.classList.add('max');
+    frame.append(close);
   }
 
   function section(group) {
