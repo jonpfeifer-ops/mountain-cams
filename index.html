@@ -1,0 +1,305 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mountain Cams</title>
+<meta name="description" content="Live webcams around Beech Mountain, Banner Elk, Sugar Mountain, Boone and Blowing Rock.">
+<meta name="theme-color" content="#0f1115">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Mountain Cams">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2315171d'/%3E%3Cpath d='M8 48 26 20l10 15 6-8 14 21z' fill='%23cfe3ff'/%3E%3Cpath d='m26 20 5 7.5-5 3-5-3z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="apple-touch-icon" href="icon.png">
+<style>
+  /* Layout: one column of fold-away sections; open sections hold a grid of live tiles. */
+  :root {
+    --bg: #0f1115;
+    --surface: #171a21;
+    --surface-2: #1e222b;
+    --line: #2a2f3a;
+    --ink: #e8ebf1;
+    --ink-2: #a3aab8;
+    --ink-3: #6c7383;
+    --accent: #8fb8ff;
+    --live: #ff6b6b;
+    --radius: 12px;
+    --font: -apple-system, BlinkMacSystemFont, "Segoe UI", Inter, Roboto, sans-serif;
+    color-scheme: dark;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.4 var(--font);
+    padding-top: env(safe-area-inset-top, 0px);
+    padding-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+    padding-left: max(16px, env(safe-area-inset-left, 0px));
+    padding-right: max(16px, env(safe-area-inset-right, 0px));
+  }
+  main { max-width: 1600px; margin: 0 auto; }
+  header { padding-block: 20px 8px; display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+  h1 { font-size: 24px; margin: 0; letter-spacing: -0.01em; }
+  .sub { color: var(--ink-3); font-size: 12px; }
+
+  section { margin-block: 18px 26px; }
+  .head {
+    display: inline-flex; align-items: center; gap: 8px;
+    background: none; border: 0; padding: 4px 0; color: var(--ink-2); cursor: pointer; font: inherit;
+  }
+  .head:hover, .head:focus-visible { color: var(--ink); }
+  .head:focus-visible { outline: 2px solid var(--accent); outline-offset: 4px; border-radius: 4px; }
+  .chev { width: 16px; height: 16px; transition: transform .15s; }
+  .head[aria-expanded="true"] .chev { transform: rotate(90deg); }
+  .head h2 { margin: 0; font-size: 14px; font-weight: 650; letter-spacing: .06em; text-transform: uppercase; }
+  .count { font-size: 12px; color: var(--ink-3); }
+
+  .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(360px, 1fr)); gap: 14px; margin-top: 10px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+
+  .tile { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); overflow: hidden; min-width: 0; }
+  .frame { position: relative; aspect-ratio: 16 / 9; background: #000; max-width: 100%; }
+  .frame video, .frame iframe { width: 100%; height: 100%; display: block; border: 0; object-fit: contain; background: #000; }
+  .msg { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; color: var(--ink-2); font-size: 13px; background: rgba(0,0,0,.6); }
+  .cap { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 9px 12px; }
+  .names { min-width: 0; }
+  .name { font-weight: 600; font-size: 14px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .place { font-size: 12px; color: var(--ink-3); }
+  .acts { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+  .badge { font-size: 10px; font-weight: 700; letter-spacing: .05em; color: var(--live); border: 1px solid var(--live); border-radius: 4px; padding: 1px 5px; margin-right: 4px; }
+  .badge.tl { color: var(--accent); border-color: var(--accent); }
+  .btn { background: none; border: 0; color: var(--ink-2); font: inherit; font-size: 12px; padding: 5px 8px; border-radius: 6px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .btn:hover, .btn:focus-visible { background: var(--surface-2); color: var(--ink); }
+  .btn svg { width: 15px; height: 15px; }
+
+  .strip { display: flex; gap: 10px; overflow-x: auto; padding-block: 8px 6px; scrollbar-width: thin; }
+  .thumb { flex: 0 0 auto; width: 150px; background: none; border: 0; padding: 0; cursor: pointer; text-align: left; color: var(--ink-2); font: inherit; }
+  .thumb .pic { width: 150px; aspect-ratio: 16 / 9; border-radius: 8px; border: 1px solid var(--line); background: var(--surface-2) center / cover no-repeat; max-width: 100%; }
+  .thumb:hover .pic, .thumb:focus-visible .pic { border-color: var(--accent); }
+  .thumb span { display: block; font-size: 11px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+  footer { color: var(--ink-3); font-size: 12px; padding-block: 8px 0; }
+  footer a { color: var(--ink-2); }
+  @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Mountain Cams</h1>
+    <span class="sub">Tap a section to open it. Folded sections use no data.</span>
+  </header>
+  <div id="sections"></div>
+  <footer>
+    Streams from <a href="https://www.resortcams.com/" target="_blank" rel="noopener">ResortCams</a>,
+    <a href="https://skisugar.com/cams/" target="_blank" rel="noopener">Sugar Mountain Resort</a> and the
+    <a href="https://www.youtube.com/@TownofBeechMountain" target="_blank" rel="noopener">Town of Beech Mountain</a>.
+  </footer>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/hls.js/1.5.13/hls.min.js"></script>
+<script src="cams.js"></script>
+<script>
+(() => {
+  const GROUPS = [
+    { id: 'local', title: 'Beech Mountain & Banner Elk' },
+    { id: 'sugar', title: 'Sugar Mountain' },
+    { id: 'nearby', title: 'Boone & Blowing Rock' },
+  ];
+  const DEFAULT_OPEN = ['local'];
+  const OPEN_KEY = 'mountainCams.open';
+  const THUMB_KEY = 'mountainCams.thumbs';
+
+  const store = {
+    get(k, d) { try { return JSON.parse(localStorage.getItem(k)) ?? d; } catch { return d; } },
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch { /* full or blocked */ } },
+  };
+  let openState = store.get(OPEN_KEY, {});
+  const thumbs = store.get(THUMB_KEY, {});
+  const isOpen = (id) => openState[id] ?? DEFAULT_OPEN.includes(id);
+
+  const el = (tag, attrs = {}, ...kids) => {
+    const n = document.createElement(tag);
+    for (const [k, v] of Object.entries(attrs)) {
+      if (k === 'class') n.className = v;
+      else if (k.startsWith('on')) n.addEventListener(k.slice(2), v);
+      else if (v !== false && v != null) n.setAttribute(k, v === true ? '' : v);
+    }
+    for (const kid of kids.flat()) if (kid != null) n.append(kid);
+    return n;
+  };
+  const icon = (d) => {
+    const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+    s.setAttribute('viewBox', '0 0 24 24'); s.setAttribute('fill', 'none'); s.setAttribute('stroke', 'currentColor');
+    s.setAttribute('stroke-width', '2'); s.setAttribute('stroke-linecap', 'round'); s.setAttribute('stroke-linejoin', 'round');
+    s.innerHTML = d; return s;
+  };
+  const ICON = {
+    chev: '<path d="m9 18 6-6-6-6"/>',
+    full: '<path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>',
+    out: '<path d="M15 3h6v6M10 14 21 3M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/>',
+  };
+
+  // Live playlists must never come from the browser cache: a cached copy can
+  // lack the cross-site header and gets blocked (seen with ResortCams).
+  const bust = (u) => `${u}${u.includes('?') ? '&' : '?'}_=${Date.now()}`;
+
+  // Remember one small frame per camera (this device only) for the folded strip.
+  function saveThumb(video, id) {
+    if (!video.videoWidth) return;
+    try {
+      const c = document.createElement('canvas');
+      c.width = 320; c.height = Math.round(320 * video.videoHeight / video.videoWidth);
+      const x = c.getContext('2d');
+      x.drawImage(video, 0, 0, c.width, c.height);
+      const px = x.getImageData(0, 0, c.width, c.height).data;
+      let sum = 0, n = 0;
+      for (let i = 0; i < px.length; i += 4 * 61) { sum += px[i] + px[i + 1] + px[i + 2]; n += 3; }
+      if (sum / n < 12) return; // skip black start-up frames
+      thumbs[id] = c.toDataURL('image/jpeg', 0.6);
+      store.set(THUMB_KEY, thumbs);
+    } catch { /* cross-origin or storage full: keep the old picture */ }
+  }
+
+  function thumbFor(cam) {
+    if (cam.poster) return cam.poster;
+    if (cam.kind === 'youtube') return `https://i.ytimg.com/vi/${cam.src}/hqdefault.jpg`;
+    return thumbs[cam.id] || null;
+  }
+
+  // One HLS player; returns a cleanup function.
+  function playHls(frame, src, { live = true, saveAs } = {}) {
+    const video = el('video', { muted: true, autoplay: true, playsinline: true, controls: true, crossorigin: 'anonymous' });
+    video.muted = true;
+    if (!live) { video.loop = true; video.addEventListener('playing', () => { video.playbackRate = 0.5; }); }
+    frame.replaceChildren(video);
+    let hls = null;
+    if (window.Hls && Hls.isSupported()) {
+      hls = new Hls({
+        liveDurationInfinity: live,
+        xhrSetup: (xhr, url) => { if (url.includes('.m3u8')) xhr.open('GET', bust(url), true); },
+      });
+      hls.on(Hls.Events.ERROR, (_e, d) => {
+        if (!d.fatal) return;
+        if (d.type === Hls.ErrorTypes.NETWORK_ERROR) hls.startLoad();
+        else if (d.type === Hls.ErrorTypes.MEDIA_ERROR) hls.recoverMediaError();
+        else frame.append(el('div', { class: 'msg' }, 'Stream is offline'));
+      });
+      hls.loadSource(src);
+      hls.attachMedia(video);
+    } else if (video.canPlayType('application/vnd.apple.mpegurl')) {
+      video.src = bust(src); // iPhone / Safari play HLS natively
+    } else {
+      frame.append(el('div', { class: 'msg' }, 'This browser can’t play the stream'));
+    }
+    // Stay near the live moment after a stall; grab a strip picture now and then.
+    let lastEnd = 0, lastGrowth = Date.now();
+    const timers = [setInterval(() => {
+      if (!live || !video.buffered.length) return;
+      const end = video.buffered.end(video.buffered.length - 1);
+      if (end > lastEnd + 0.1) { lastEnd = end; lastGrowth = Date.now(); }
+      if (end - video.currentTime > 10 && Date.now() - lastGrowth < 5000) video.currentTime = end - 3;
+    }, 3000)];
+    if (saveAs) {
+      timers.push(setTimeout(() => saveThumb(video, saveAs), 5000));
+      timers.push(setInterval(() => saveThumb(video, saveAs), 60000));
+    }
+    return () => { timers.forEach((t) => { clearInterval(t); clearTimeout(t); }); hls?.destroy(); video.removeAttribute('src'); video.load(); };
+  }
+
+  function tile(cam) {
+    const frame = el('div', { class: 'frame' });
+    const badge = el('span', { class: 'badge' }, 'LIVE');
+    const acts = el('div', { class: 'acts' }, badge);
+    let stop = () => {};
+    let replay = false;
+
+    const startLive = () => {
+      stop();
+      badge.textContent = 'LIVE'; badge.className = 'badge';
+      if (cam.kind === 'youtube') {
+        frame.replaceChildren(el('iframe', {
+          src: `https://www.youtube-nocookie.com/embed/${cam.src}?autoplay=1&mute=1&playsinline=1`,
+          title: cam.name, allow: 'autoplay; encrypted-media; picture-in-picture; fullscreen', allowfullscreen: true,
+        }));
+        stop = () => frame.replaceChildren();
+      } else {
+        stop = playHls(frame, cam.src, { saveAs: cam.poster ? null : cam.id });
+      }
+    };
+
+    if (cam.replay) {
+      const b = el('button', { class: 'btn', type: 'button' }, 'Time-lapse');
+      b.addEventListener('click', () => {
+        replay = !replay;
+        if (replay) {
+          stop();
+          badge.textContent = 'TIME-LAPSE'; badge.className = 'badge tl';
+          stop = playHls(frame, cam.replay, { live: false });
+          b.textContent = 'Back to live';
+        } else {
+          startLive();
+          b.textContent = 'Time-lapse';
+        }
+      });
+      acts.append(b);
+    }
+    acts.append(
+      el('button', { class: 'btn', type: 'button', title: 'Full screen', 'aria-label': 'Full screen', onclick: () => {
+        const v = frame.querySelector('video, iframe');
+        const target = v || frame;
+        (target.requestFullscreen || target.webkitRequestFullscreen || target.webkitEnterFullscreen)?.call(target);
+      } }, icon(ICON.full)),
+      el('a', { class: 'btn', href: cam.link, target: '_blank', rel: 'noopener', title: 'Source page', 'aria-label': 'Source page' }, icon(ICON.out)),
+    );
+
+    const node = el('div', { class: 'tile' }, frame,
+      el('div', { class: 'cap' },
+        el('div', { class: 'names' }, el('div', { class: 'name' }, cam.name), el('div', { class: 'place' }, cam.place)),
+        acts));
+    startLive();
+    return { node, stop: () => stop() };
+  }
+
+  function section(group) {
+    const cams = window.CAMS.filter((c) => c.group === group.id);
+    const head = el('button', { class: 'head', type: 'button', 'aria-expanded': String(isOpen(group.id)) },
+      icon(ICON.chev), el('h2', {}, group.title), el('span', { class: 'count' }, `${cams.length} cams`));
+    head.querySelector('svg').classList.add('chev');
+    const body = el('div');
+    const sec = el('section', {}, head, body);
+    let tiles = [];
+
+    const render = () => {
+      tiles.forEach((t) => t.stop());
+      tiles = [];
+      const open = isOpen(group.id);
+      head.setAttribute('aria-expanded', String(open));
+      if (open) {
+        tiles = cams.map(tile);
+        body.replaceChildren(el('div', { class: 'grid' }, tiles.map((t) => t.node)));
+      } else {
+        body.replaceChildren(el('div', { class: 'strip' }, cams.map((cam) => {
+          const pic = el('div', { class: 'pic' });
+          const src = thumbFor(cam);
+          if (src) pic.style.backgroundImage = `url("${src}")`;
+          return el('button', { class: 'thumb', type: 'button', title: cam.name, onclick: toggle }, pic, el('span', {}, cam.name));
+        })));
+      }
+    };
+    function toggle() {
+      openState = { ...openState, [group.id]: !isOpen(group.id) };
+      store.set(OPEN_KEY, openState);
+      render();
+    }
+    head.addEventListener('click', toggle);
+    render();
+    return sec;
+  }
+
+  document.getElementById('sections').replaceChildren(...GROUPS.map(section));
+})();
+</script>
+</body>
+</html>
