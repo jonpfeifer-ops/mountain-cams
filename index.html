@@ -79,6 +79,10 @@
   .thumb:hover .pic, .thumb:focus-visible .pic { border-color: var(--accent); }
   .thumb span { display: block; font-size: 11px; margin-top: 4px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
+  .refresh { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; background: var(--surface); border: 1px solid var(--line); color: var(--ink-2); font: inherit; font-size: 13px; padding: 7px 12px; border-radius: 999px; cursor: pointer; }
+  .refresh:hover, .refresh:focus-visible { color: var(--ink); border-color: var(--accent); }
+  .refresh svg { width: 16px; height: 16px; }
+  header .sub { flex-basis: 100%; order: 3; }
   footer { color: var(--ink-3); font-size: 12px; padding-block: 8px 0; }
   footer a { color: var(--ink-2); }
   @media (prefers-reduced-motion: reduce) { .chev { transition: none; } }
@@ -89,6 +93,10 @@
   <header>
     <h1>Mountain Cams</h1>
     <span class="sub">Tap a section to open it. Folded sections use no data.</span>
+    <button id="refresh" class="refresh" type="button" aria-label="Refresh">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 4v5h-5"/></svg>
+      <span>Refresh</span>
+    </button>
   </header>
   <div id="sections"></div>
   <footer>
@@ -118,6 +126,7 @@
   let openState = store.get(OPEN_KEY, {});
   const thumbs = store.get(THUMB_KEY, {});
   const isOpen = (id) => openState[id] ?? DEFAULT_OPEN.includes(id);
+  const renders = []; // one per section: rebuilds its tiles or picture strip
 
   const el = (tag, attrs = {}, ...kids) => {
     const n = document.createElement(tag);
@@ -163,7 +172,7 @@
   }
 
   function thumbFor(cam) {
-    if (cam.poster) return cam.poster;
+    if (cam.poster) return `${cam.poster}&_=${Math.floor(Date.now() / 60000)}`; // fresh each minute
     if (cam.kind === 'youtube') return `https://i.ytimg.com/vi/${cam.src}/hqdefault.jpg`;
     return thumbs[cam.id] || null;
   }
@@ -295,10 +304,21 @@
     }
     head.addEventListener('click', toggle);
     render();
+    renders.push(render);
     return sec;
   }
 
   document.getElementById('sections').replaceChildren(...GROUPS.map(section));
+
+  // Home-screen apps have no reload button or pull-down. The Refresh button
+  // reloads everything (new cams included); coming back to the app after a
+  // couple of minutes quietly refreshes pictures and restarts open streams.
+  document.getElementById('refresh').addEventListener('click', () => location.reload());
+  let hiddenAt = 0;
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) { hiddenAt = Date.now(); return; }
+    if (hiddenAt && Date.now() - hiddenAt > 2 * 60 * 1000) renders.forEach((r) => r());
+  });
 })();
 </script>
 </body>
