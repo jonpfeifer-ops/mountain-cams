@@ -260,12 +260,14 @@
       el('button', { class: 'btn', type: 'button', title: 'Full screen', 'aria-label': 'Full screen', onclick: () => {
         // iPhones refuse real full screen for anything but a loaded <video>,
         // so fall back to filling the window.
-        const v = frame.querySelector('video');
-        const t = v || frame.querySelector('iframe') || frame;
+        // iPhone reports fullscreenEnabled = false (its webkit calls exist but
+        // silently do nothing), so only real browsers that say yes get tried.
+        const t = frame.querySelector('video, iframe') || frame;
+        const can = document.fullscreenEnabled || document.webkitFullscreenEnabled;
+        if (!can) { maximize(frame); return; }
         try {
           if (t.requestFullscreen) { t.requestFullscreen().catch(() => maximize(frame)); return; }
           if (t.webkitRequestFullscreen) { t.webkitRequestFullscreen(); return; }
-          if (v && v.webkitEnterFullscreen && v.readyState >= 1) { v.webkitEnterFullscreen(); return; }
         } catch { /* fall through */ }
         maximize(frame);
       } }, icon(ICON.full)),
